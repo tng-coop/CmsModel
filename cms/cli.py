@@ -5,7 +5,7 @@ from typing import Dict
 from prompt_toolkit import PromptSession
 
 from .completer import CmsCompleter
-from .data import print_category_tree, seed_data
+from .data import print_category_tree, seed_data, interactive_tree_edit
 from .models import Category, Content
 
 
@@ -154,16 +154,20 @@ def run_cli() -> None:
             else:
                 print('No categories.')
         elif cmd == 'tree_edit':
-            if len(tokens) != 3:
-                print('Usage: tree_edit <name> <parent>')
+            if len(tokens) > 3:
+                print('Usage: tree_edit [name] [parent]')
                 continue
-            name, parent = tokens[1], tokens[2]
-            cat = categories.get(name)
-            if cat:
-                cat.parent = None if parent.lower() == 'none' else parent
-                print('Category updated.')
+            name = tokens[1] if len(tokens) >= 2 else None
+            parent = tokens[2] if len(tokens) == 3 else None
+            if name is not None and parent is not None:
+                cat = categories.get(name)
+                if cat:
+                    cat.parent = None if parent.lower() == 'none' else parent
+                    print('Category updated.')
+                else:
+                    print('Category not found.')
             else:
-                print('Category not found.')
+                interactive_tree_edit(categories)
         elif cmd == 'seed_data':
             seed_data(categories, contents)
             print('Sample data loaded.')
