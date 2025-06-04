@@ -1,6 +1,9 @@
-# Interactive CLI
+# Interactive GUI
 
-This project demonstrates a simple interactive command line interface built with [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
+This project demonstrates a simple interface built with
+[Tkinter](https://docs.python.org/3/library/tkinter.html) for the graphical
+tree view. The command line functionality still uses
+[prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
 
 ## Setup
 
@@ -17,9 +20,15 @@ Run the CLI with Python:
 ```bash
 python cli.py
 ```
-The application opens the full-screen tree UI automatically. After you exit the
-UI you will be greeted with an interactive prompt. Type `help` to see available
+The application opens a Tkinter window showing the category tree. Closing the
+window returns you to the interactive prompt. Type `help` to see available
 commands and `exit` to quit.
+
+You can also launch the GUI directly without entering the CLI:
+
+```bash
+python gui.py
+```
 
 The CLI now supports simple management of **categories** and **content** items. Each category may have a `parent` category. Content has `content_type`, `category` and `action` fields. Use the following commands to manage them:
 
@@ -48,12 +57,9 @@ menu is organized under a root category called `CMS`, with items like `Home` and
 `About` appearing as children. The `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
-The `tree_ui` command opens a full-screen tree browser. A right-click context
- menu allows inline renaming or deleting of categories. You can still rename or
- re-parent using the keyboard shortcuts as well. The tree now displays a content
- panel on the right showing items for the selected category. Each listed content
- item has an `[Edit]` button which lets you modify the item inline without
- leaving the view.
+The `tree_ui` command opens the same Tkinter window for editing categories and
+contents. Right-click a category to rename or delete it and double click a
+content item to edit its fields.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
 parent selection dialog is shown. The command validates that the selected
