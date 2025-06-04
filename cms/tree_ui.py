@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+import asyncio
+
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import HSplit, Layout, Window, VSplit
@@ -95,13 +97,13 @@ class TreeEditor:
         return names
 
     # -------------------------------------------------------------- operations
-    def _rename_node(self) -> None:
+    async def _rename_node(self) -> None:
         node, _ = self._lines[self.selected_index]
-        new_name = input_dialog(
+        new_name = await input_dialog(
             title="Rename Category",
             text=f"Enter new name for '{node.name}':",
             default=node.name,
-        ).run()
+        ).run_async()
         if new_name and new_name != node.name:
             old_name = node.name
             cat = self.categories.pop(old_name)
@@ -114,17 +116,17 @@ class TreeEditor:
             self._reset_selection(new_name)
             self.app.invalidate()
 
-    def _change_parent(self) -> None:
+    async def _change_parent(self) -> None:
         node, _ = self._lines[self.selected_index]
         exclude = set(self._collect_descendants(node)) | {node.name}
         options = [('none', 'None')] + [
             (name, name) for name in sorted(self.categories.keys()) if name not in exclude
         ]
-        result = radiolist_dialog(
+        result = await radiolist_dialog(
             title="Change Parent",
             text=f"Select new parent for '{node.name}':",
             values=options,
-        ).run()
+        ).run_async()
         if result is None:
             return
         new_parent = None if result == 'none' else result
@@ -244,11 +246,11 @@ class TreeEditor:
 
         @kb.add("r")
         def _rename(event) -> None:
-            self._rename_node()
+            asyncio.create_task(self._rename_node())
 
         @kb.add("p")
         def _parent(event) -> None:
-            self._change_parent()
+            asyncio.create_task(self._change_parent())
 
         @kb.add("q")
         def _quit(event) -> None:
@@ -289,8 +291,8 @@ class TreeEditor:
             idx += 1
 
             if self.show_menu and idx - 1 == self.menu_parent_index:
-                fragments.append(("", f"    ❏ Rename\n", self._menu_mouse_factory("rename", self.menu_parent_index)))
-                fragments.append(("", f"    ❏ Delete\n", self._menu_mouse_factory("delete", self.menu_parent_index)))
+                fragments.append(("", "    ❏ Rename\n", self._menu_mouse_factory("rename", self.menu_parent_index)))
+                fragments.append(("", "    ❏ Delete\n", self._menu_mouse_factory("delete", self.menu_parent_index)))
 
         return fragments
 
@@ -365,47 +367,46 @@ class TreeEditor:
                 mouse_event.event_type == MouseEventType.MOUSE_UP
                 and mouse_event.button == MouseButton.LEFT
             ):
-                self._edit_content(name)
-                self.app.invalidate()
+                asyncio.create_task(self._edit_content(name))
 
         return handler
 
-    def _edit_content(self, name: str) -> None:
+    async def _edit_content(self, name: str) -> None:
         """Prompt user to edit the given content item."""
 
         c = self.contents.get(name)
         if not c:
             return
 
-        new_name = input_dialog(
+        new_name = await input_dialog(
             title="Edit Content",
             text="Name:",
             default=c.name,
-        ).run()
+        ).run_async()
         if not new_name:
             return
 
-        ctype = input_dialog(
+        ctype = await input_dialog(
             title="Edit Content",
             text="Content Type:",
             default=c.content_type,
-        ).run()
+        ).run_async()
         if not ctype:
             return
 
-        cat_choice = radiolist_dialog(
+        cat_choice = await radiolist_dialog(
             title="Edit Content",
             text="Select Category:",
             values=[(n, n) for n in sorted(self.categories.keys())],
-        ).run()
+        ).run_async()
         if cat_choice is None:
             return
 
-        action_choice = radiolist_dialog(
+        action_choice = await radiolist_dialog(
             title="Edit Content",
             text="Select Action:",
             values=[(a, a) for a in ["delete", "update", "new"]],
-        ).run()
+        ).run_async()
         if action_choice is None:
             return
 
@@ -417,6 +418,8 @@ class TreeEditor:
         c.content_type = ctype
         c.category = cat_choice
         c.action = action_choice
+
+        self.app.invalidate()
 
 
     def _render_content(self):
