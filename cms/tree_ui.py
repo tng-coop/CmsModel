@@ -9,7 +9,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
-from prompt_toolkit.mouse_events import MouseEventType
+from prompt_toolkit.mouse_events import MouseEventType, MouseButton
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.styles import Style
 
 from .models import Category
@@ -37,6 +38,14 @@ class TreeEditor:
         self.selected_index = 0
         self.root = self._build_tree()
         self._lines: List[Tuple[TreeNode, str]] = []
+
+        # Context menu and inline edit state
+        self.show_menu = False
+        self.menu_parent_index = -1
+        self.is_editing = False
+        self.edit_index = -1
+        self.edit_text = ""
+
         self.bindings = self._create_bindings()
         self.style = Style.from_dict({
             "line": "bg:#444444",
@@ -129,39 +138,101 @@ class TreeEditor:
 
         @kb.add("up")
         def _up(event) -> None:
-            if self.selected_index > 0:
+            if self.is_editing:
+                self.is_editing = False
+            elif self.show_menu:
+                self.show_menu = False
+            elif self.selected_index > 0:
                 self.selected_index -= 1
-                event.app.invalidate()
+            event.app.invalidate()
 
         @kb.add("down")
         def _down(event) -> None:
-            if self.selected_index < len(self._lines) - 1:
+            if self.is_editing:
+                self.is_editing = False
+            elif self.show_menu:
+                self.show_menu = False
+            elif self.selected_index < len(self._lines) - 1:
                 self.selected_index += 1
-                event.app.invalidate()
+            event.app.invalidate()
 
         @kb.add("right")
         def _expand(event) -> None:
-            node, _ = self._lines[self.selected_index]
-            if node.children and not node.expanded:
-                node.expanded = True
-                event.app.invalidate()
+            if self.is_editing:
+                self.is_editing = False
+            elif self.show_menu:
+                self.show_menu = False
+            else:
+                node, _ = self._lines[self.selected_index]
+                if node.children and not node.expanded:
+                    node.expanded = True
+            event.app.invalidate()
 
         @kb.add("left")
         def _collapse(event) -> None:
-            node, _ = self._lines[self.selected_index]
-            if node.children and node.expanded:
-                node.expanded = False
-                event.app.invalidate()
+            if self.is_editing:
+                self.is_editing = False
+            elif self.show_menu:
+                self.show_menu = False
             else:
-                current_text = self._lines[self.selected_index][1]
-                current_indent = len(current_text) - len(current_text.lstrip())
-                for i in range(self.selected_index - 1, -1, -1):
-                    text_i = self._lines[i][1]
-                    indent_i = len(text_i) - len(text_i.lstrip())
-                    if indent_i < current_indent:
-                        self.selected_index = i
-                        event.app.invalidate()
-                        return
+                node, _ = self._lines[self.selected_index]
+                if node.children and node.expanded:
+                    node.expanded = False
+                else:
+                    current_text = self._lines[self.selected_index][1]
+                    current_indent = len(current_text) - len(current_text.lstrip())
+                    for i in range(self.selected_index - 1, -1, -1):
+                        text_i = self._lines[i][1]
+                        indent_i = len(text_i) - len(text_i.lstrip())
+                        if indent_i < current_indent:
+                            self.selected_index = i
+                            break
+            event.app.invalidate()
+
+        @kb.add("enter")
+        def _enter(event) -> None:
+            if self.is_editing:
+                node, _ = self._lines[self.edit_index]
+                old_name = node.name
+                new_name = self.edit_text
+                if new_name and new_name != old_name:
+                    cat = self.categories.pop(old_name)
+                    cat.name = new_name
+                    self.categories[new_name] = cat
+                    for c in self.categories.values():
+                        if c.parent == old_name:
+                            c.parent = new_name
+                    node.name = new_name
+                    self.root = self._build_tree()
+                    self._reset_selection(new_name)
+                self.is_editing = False
+                self.edit_index = -1
+            event.app.invalidate()
+
+        @kb.add("escape")
+        def _escape(event) -> None:
+            if self.is_editing:
+                self.is_editing = False
+                self.edit_index = -1
+            elif self.show_menu:
+                self.show_menu = False
+                self.menu_parent_index = -1
+            else:
+                event.app.exit()
+            event.app.invalidate()
+
+        @kb.add("backspace")
+        def _backspace(event) -> None:
+            if self.is_editing:
+                self.edit_text = self.edit_text[:-1]
+                event.app.invalidate()
+
+        @kb.add("<any>", filter=Condition(lambda: self.is_editing))
+        def _any_key(event) -> None:
+            key = event.key_sequence[0].key
+            if len(key) == 1:
+                self.edit_text += key
+                event.app.invalidate()
 
         @kb.add("r")
         def _rename(event) -> None:
@@ -180,25 +251,102 @@ class TreeEditor:
     # ------------------------------------------------------------------ layout
     def _render(self):
         fragments = []
-        self._lines = self._visible_lines(self.root, show_node=False)
-        if not self._lines:
+        lines = self._visible_lines(self.root, show_node=False)
+        self._lines = lines
+        total = len(lines)
+        if total == 0:
             return fragments
+
         if self.selected_index < 0:
             self.selected_index = 0
-        if self.selected_index >= len(self._lines):
-            self.selected_index = len(self._lines) - 1
-        for idx, (node, text) in enumerate(self._lines):
+        if self.selected_index >= total:
+            self.selected_index = total - 1
+
+        if self.show_menu and (self.menu_parent_index < 0 or self.menu_parent_index >= total):
+            self.show_menu = False
+
+        idx = 0
+        while idx < total:
+            node, text = lines[idx]
             style = "reverse" if idx == self.selected_index else ""
+
+            if self.is_editing and idx == self.edit_index:
+                prefix = text[:-len(node.name)]
+                displayed = f"{prefix}{self.edit_text}|"
+                fragments.append((style, displayed + "\n", self._mouse_handler(node, idx)))
+                idx += 1
+                continue
+
             fragments.append((style, text + "\n", self._mouse_handler(node, idx)))
+            idx += 1
+
+            if self.show_menu and idx - 1 == self.menu_parent_index:
+                fragments.append(("", f"    ❏ Rename\n", self._menu_mouse_factory("rename", self.menu_parent_index)))
+                fragments.append(("", f"    ❏ Delete\n", self._menu_mouse_factory("delete", self.menu_parent_index)))
+
         return fragments
+
+    def _menu_mouse_factory(self, option: str, parent_idx: int):
+        """Return mouse handler for inline menu options."""
+
+        def menu_handler(mouse_event):
+            if (
+                mouse_event.event_type == MouseEventType.MOUSE_UP
+                and mouse_event.button == MouseButton.LEFT
+            ):
+                self.show_menu = False
+                if option == "rename":
+                    self.is_editing = True
+                    self.edit_index = parent_idx
+                    node, _ = self._lines[parent_idx]
+                    self.edit_text = node.name
+                    self.selected_index = parent_idx
+                else:  # delete
+                    node, text = self._lines[parent_idx]
+                    if node is not self.root:
+                        self.categories.pop(node.name, None)
+                        indent_i = len(text) - len(text.lstrip())
+                        parent = None
+                        for j in range(parent_idx - 1, -1, -1):
+                            node_j, text_j = self._lines[j]
+                            indent_j = len(text_j) - len(text_j.lstrip())
+                            if indent_j < indent_i:
+                                parent = node_j
+                                break
+                        if parent and node in parent.children:
+                            parent.children.remove(node)
+                        self.root = self._build_tree()
+                        visible_after = self._visible_lines(self.root, show_node=False)
+                        self.selected_index = min(parent_idx, len(visible_after) - 1)
+                self.menu_parent_index = -1
+                self.app.invalidate()
+        return menu_handler
 
     def _mouse_handler(self, node: TreeNode, idx: int):
         def handler(mouse_event):
             if mouse_event.event_type == MouseEventType.MOUSE_UP:
-                self.selected_index = idx
-                if node.children:
-                    node.toggle()
-                self.app.invalidate()
+
+                if self.is_editing and mouse_event.button == MouseButton.LEFT:
+                    if idx != self.edit_index:
+                        self.is_editing = False
+                        self.app.invalidate()
+                        return
+
+                if mouse_event.button == MouseButton.LEFT and not self.is_editing:
+                    if self.show_menu and self.menu_parent_index != idx:
+                        self.show_menu = False
+                    else:
+                        self.selected_index = idx
+                        if node.children:
+                            node.toggle()
+                    self.app.invalidate()
+
+                elif mouse_event.button == MouseButton.RIGHT and not self.is_editing:
+                    self.selected_index = idx
+                    self.menu_parent_index = idx
+                    self.show_menu = True
+                    self.app.invalidate()
+
         return handler
 
     def _create_app(self) -> Application:
@@ -207,9 +355,21 @@ class TreeEditor:
         body = HSplit([
             tree_window,
             Window(height=1, char="─", style="class:line"),
-            Window(content=FormattedTextControl(lambda: [
-                ("class:status", " ↑/↓ move, ←/→ collapse/expand, R rename, P change parent, Q quit ")
-            ]), height=1),
+            Window(
+                content=FormattedTextControl(
+                    lambda: [
+                        (
+                            "class:status",
+                            (
+                                " Editing: Type text, Enter to save, Esc to cancel. "
+                                if self.is_editing
+                                else " Use ↑/↓ to move, ←/→ to collapse/expand, Right-click for menu, Q or Esc to quit. "
+                            ),
+                        )
+                    ]
+                ),
+                height=1,
+            ),
         ])
         app = Application(
             layout=Layout(body, focused_element=tree_window),
