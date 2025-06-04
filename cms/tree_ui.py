@@ -39,6 +39,7 @@ class TreeEditor:
         self.categories = categories
         self.contents = contents or {}
         self.selected_index = 0
+        self.order = self._build_order()
         self.root = self._build_tree()
         self._lines: List[Tuple[TreeNode, str]] = []
 
@@ -48,6 +49,10 @@ class TreeEditor:
         self.is_editing = False
         self.edit_index = -1
         self.edit_text = ""
+
+        # Drag and drop state
+        self.dragging = False
+        self.drag_index = -1
 
         self.is_editing_content = False
         self.edit_content_name = ""
@@ -61,6 +66,13 @@ class TreeEditor:
         })
         self.app = self._create_app()
 
+    def _build_order(self) -> Dict[Optional[str], List[str]]:
+        """Create mapping of parent -> ordered child names."""
+        order: Dict[Optional[str], List[str]] = {}
+        for name, cat in self.categories.items():
+            order.setdefault(cat.parent, []).append(name)
+        return order
+
     def _selected_category(self) -> Optional[str]:
         """Return the currently selected category name, or None."""
         if not self._lines:
@@ -72,12 +84,14 @@ class TreeEditor:
     def _build_tree(self) -> TreeNode:
         nodes = {name: TreeNode(name, c) for name, c in self.categories.items()}
         root = TreeNode("ROOT")
-        for name, cat in self.categories.items():
-            node = nodes[name]
-            if cat.parent and cat.parent in nodes:
-                nodes[cat.parent].children.append(node)
-            else:
-                root.children.append(node)
+        for parent, children in self.order.items():
+            parent_node = root if parent is None else nodes.get(parent)
+            if not parent_node:
+                continue
+            for name in children:
+                node = nodes.get(name)
+                if node:
+                    parent_node.children.append(node)
         root.expanded = True
         return root
 
@@ -101,6 +115,34 @@ class TreeEditor:
             names.extend(self._collect_descendants(child))
         return names
 
+    def _parent_name(self, idx: int) -> Optional[str]:
+        """Return the parent category name for the line at index."""
+        text = self._lines[idx][1]
+        indent = len(text) - len(text.lstrip())
+        for j in range(idx - 1, -1, -1):
+            t = self._lines[j][1]
+            indent_j = len(t) - len(t.lstrip())
+            if indent_j < indent:
+                node = self._lines[j][0]
+                return None if node is self.root else node.name
+        return None
+
+    def _reorder_siblings(self, parent: Optional[str], from_idx: int, to_idx: int) -> None:
+        from_node, _ = self._lines[from_idx]
+        to_node, _ = self._lines[to_idx]
+        lst = self.order.get(parent, [])
+        try:
+            fi = lst.index(from_node.name)
+            ti = lst.index(to_node.name)
+        except ValueError:
+            return
+        item = lst.pop(fi)
+        if ti > fi:
+            ti -= 1
+        lst.insert(ti, item)
+        self.root = self._build_tree()
+        self.selected_index = to_idx
+
     # -------------------------------------------------------------- operations
     async def _rename_node(self) -> None:
         node, _ = self._lines[self.selected_index]
@@ -117,6 +159,10 @@ class TreeEditor:
             for c in self.categories.values():
                 if c.parent == old_name:
                     c.parent = new_name
+            for lst in self.order.values():
+                for i, n in enumerate(lst):
+                    if n == old_name:
+                        lst[i] = new_name
             self.root = self._build_tree()
             self._reset_selection(new_name)
             self.app.invalidate()
@@ -135,7 +181,14 @@ class TreeEditor:
         if result is None:
             return
         new_parent = None if result == 'none' else result
+        old_parent = self.categories[node.name].parent
         self.categories[node.name].parent = new_parent
+        if old_parent in self.order:
+            try:
+                self.order[old_parent].remove(node.name)
+            except ValueError:
+                pass
+        self.order.setdefault(new_parent, []).append(node.name)
         self.root = self._build_tree()
         self._reset_selection(node.name)
         self.app.invalidate()
@@ -307,6 +360,8 @@ class TreeEditor:
         while idx < total:
             node, text = lines[idx]
             style = "reverse" if idx == self.selected_index else ""
+            if self.dragging and idx == self.drag_index:
+                style = (style + " underline").strip()
 
             if self.is_editing and idx == self.edit_index:
                 prefix = text[:-len(node.name)]
@@ -343,6 +398,12 @@ class TreeEditor:
                     node, text = self._lines[parent_idx]
                     if node is not self.root:
                         self.categories.pop(node.name, None)
+                        parent_name = self._parent_name(parent_idx)
+                        if parent_name in self.order:
+                            try:
+                                self.order[parent_name].remove(node.name)
+                            except ValueError:
+                                pass
                         indent_i = len(text) - len(text.lstrip())
                         parent = None
                         for j in range(parent_idx - 1, -1, -1):
@@ -362,7 +423,25 @@ class TreeEditor:
 
     def _mouse_handler(self, node: TreeNode, idx: int):
         def handler(mouse_event):
+            if mouse_event.event_type == MouseEventType.MOUSE_DOWN and mouse_event.button == MouseButton.LEFT:
+                if not self.is_editing:
+                    self.dragging = True
+                    self.drag_index = idx
+                    self.selected_index = idx
+                    self.app.invalidate()
+                return
+
             if mouse_event.event_type == MouseEventType.MOUSE_UP:
+
+                if self.dragging and mouse_event.button == MouseButton.LEFT:
+                    self.dragging = False
+                    if idx != self.drag_index:
+                        p_from = self._parent_name(self.drag_index)
+                        p_to = self._parent_name(idx)
+                        if p_from == p_to:
+                            self._reorder_siblings(p_from, self.drag_index, idx)
+                    self.app.invalidate()
+                    return
 
                 if self.is_editing and mouse_event.button == MouseButton.LEFT:
                     if idx != self.edit_index:
