@@ -44,7 +44,8 @@ tree_ui
 
 These commands operate on in-memory data only and are intended for experimentation.
 On startup the CLI is pre-populated with sample categories and contents. The
-`seed_data` command can be used to reload this data at any time. `clear_all`
+menu is organized under a root category called `CMS`, with items like `Home` and
+`About` appearing as children. The `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
 The `tree_ui` command opens a full-screen tree browser. A right-click context
