@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Set, Tuple
 
 from .models import Category, Content
-from prompt_toolkit import Application, PromptSession
+from prompt_toolkit import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.widgets import TextArea
@@ -104,7 +104,6 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
         _collect(None)
         return order, parents
 
-    session = PromptSession()
     tree, parents = build_tree()
     index = 0 if tree else -1
 
@@ -129,7 +128,7 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
         if index == -1:
             return
         name = tree[index][0]
-        new_name = session.prompt(f'New name for {name}: ').strip()
+        new_name = input(f'New name for {name}: ').strip()
         if not new_name:
             return
         cat = categories.pop(name)
@@ -151,7 +150,7 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
         if index == -1:
             return
         name = tree[index][0]
-        parent = session.prompt('New parent (blank for none): ').strip() or None
+        parent = input('New parent (blank for none): ').strip() or None
         categories[name].parent = parent
         refresh()
 
