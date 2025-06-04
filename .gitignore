@@ -1,0 +1,3 @@
+__pycache__/
+*.pyc
+DATA/churches/*/office_info.txt

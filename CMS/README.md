@@ -10,6 +10,13 @@ Install the dependencies from `requirements.txt`:
 pip install -r requirements.txt
 ```
 
+The repository is organised with two top-level folders:
+
+- **CMS** – contains the Python sources for the demo CLI.
+- **DATA** – holds an empty directory tree for fifty churches. Each church
+  folder only includes a `.gitkeep` placeholder. Office information is
+  produced on the fly by `cms.office_info.generate_office_info`.
+
 ## Usage
 
 Run the CLI with Python:
