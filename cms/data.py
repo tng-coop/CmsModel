@@ -1,8 +1,12 @@
 """Utility functions for CMS data management."""
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from .models import Category, Content
+from prompt_toolkit import Application, PromptSession
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.widgets import TextArea
 
 
 def seed_data(categories: Dict[str, Category], contents: Dict[str, Content]) -> None:
@@ -75,20 +79,57 @@ def print_category_tree(
 
 
 def interactive_tree_edit(categories: Dict[str, Category]) -> None:
-    """Interactively modify categories with selection and collapsing."""
+    """Interactively modify categories using arrow key navigation."""
 
     collapsed: Set[str] = set()
-    selected: Optional[str] = next(iter(categories)) if categories else None
+
+    def build_tree() -> Tuple[List[Tuple[str, int]], Dict[str, str]]:
+        """Return visible nodes with indent and parent mapping."""
+        children: Dict[Optional[str], List[str]] = {}
+        parents: Dict[str, str] = {}
+        for cat in categories.values():
+            children.setdefault(cat.parent, []).append(cat.name)
+            if cat.parent is not None:
+                parents[cat.name] = cat.parent
+
+        order: List[Tuple[str, int]] = []
+
+        def _collect(node: Optional[str], indent: int = 0) -> None:
+            for child in sorted(children.get(node, [])):
+                order.append((child, indent))
+                if child not in collapsed:
+                    _collect(child, indent + 1)
+
+        _collect(None)
+        return order, parents
+
+    session = PromptSession()
+    tree, parents = build_tree()
+    index = 0 if tree else -1
+
+    kb = KeyBindings()
+
+    def refresh() -> None:
+        nonlocal tree, parents, index
+        tree, parents = build_tree()
+        if not tree:
+            index = -1
+        elif index >= len(tree):
+            index = len(tree) - 1
+        print("\x1b[2J\x1b[H", end="")
+        for i, (name, indent) in enumerate(tree):
+            prefix = '+' if name in collapsed else '-'
+            marker = '>' if i == index else ' '
+            print('  ' * indent + f"{marker}{prefix} {name}")
+        print('\nUse arrows to navigate, Enter to rename, e:edit parent, d:delete, q:quit')
 
     def rename_category() -> None:
-        nonlocal selected
-        name = input(f'Category to rename [{selected or ""}]: ').strip() or selected
-        if not name or name not in categories:
-            print('Category not found.')
+        nonlocal index
+        if index == -1:
             return
-        new_name = input('New name: ').strip()
+        name = tree[index][0]
+        new_name = session.prompt(f'New name for {name}: ').strip()
         if not new_name:
-            print('Name cannot be empty.')
             return
         cat = categories.pop(name)
         cat.name = new_name
@@ -99,64 +140,113 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
         if name in collapsed:
             collapsed.remove(name)
             collapsed.add(new_name)
-        if selected == name:
-            selected = new_name
+        refresh()
+        # update selection
+        tree_names = [n for n, _ in tree]
+        if name in tree_names:
+            index = tree_names.index(new_name)
 
     def change_parent() -> None:
-        name = input(f'Category to move [{selected or ""}]: ').strip() or selected
-        if not name or name not in categories:
-            print('Category not found.')
+        if index == -1:
             return
-        parent = input('New parent (blank for none): ').strip() or None
+        name = tree[index][0]
+        parent = session.prompt('New parent (blank for none): ').strip() or None
         categories[name].parent = parent
+        refresh()
 
     def delete_category() -> None:
-        nonlocal selected
-        name = input(f'Category to delete [{selected or ""}]: ').strip() or selected
-        if not name or name not in categories:
-            print('Category not found.')
+        nonlocal index
+        if index == -1:
             return
+        name = tree[index][0]
         categories.pop(name)
         collapsed.discard(name)
         for c in categories.values():
             if c.parent == name:
                 c.parent = None
-        if selected == name:
-            selected = None
+        refresh()
+        if tree:
+            index = max(0, min(index, len(tree) - 1))
+        else:
+            index = -1
 
-    def toggle() -> None:
-        if not selected:
+    def toggle_node() -> None:
+        if index == -1:
             return
-        if selected in collapsed:
-            collapsed.remove(selected)
+        name = tree[index][0]
+        if name in collapsed:
+            collapsed.remove(name)
         else:
-            # only allow collapsing if node has children
-            if any(c.parent == selected for c in categories.values()):
-                collapsed.add(selected)
+            if any(c.parent == name for c in categories.values()):
+                collapsed.add(name)
+        refresh()
 
-    def select_category() -> None:
-        nonlocal selected
-        name = input('Category to select: ').strip()
-        if name in categories:
-            selected = name
+    @kb.add('up')
+    def _(event) -> None:
+        nonlocal index
+        if tree:
+            index = (index - 1) % len(tree)
+            refresh()
+
+    @kb.add('down')
+    def _(event) -> None:
+        nonlocal index
+        if tree:
+            index = (index + 1) % len(tree)
+            refresh()
+
+    @kb.add('left')
+    def _(event) -> None:
+        nonlocal index
+        if index == -1:
+            return
+        name = tree[index][0]
+        if name not in collapsed and any(c.parent == name for c in categories.values()):
+            collapsed.add(name)
         else:
-            print('Category not found.')
+            parent = parents.get(name)
+            if parent is not None:
+                for i, (n, _) in enumerate(tree):
+                    if n == parent:
+                        index = i
+                        break
+        refresh()
 
-    actions = {
-        'r': rename_category,
-        'e': change_parent,
-        'd': delete_category,
-        't': toggle,
-        's': select_category,
-    }
-
-    while True:
-        print_category_tree(categories, collapsed, selected)
-        choice = input('[r]ename, [e]dit parent, [d]elete, [t]oggle, [s]elect, [q]uit: ').strip().lower()
-        if choice == 'q':
-            break
-        action = actions.get(choice)
-        if action:
-            action()
+    @kb.add('right')
+    def _(event) -> None:
+        nonlocal index
+        if index == -1:
+            return
+        name = tree[index][0]
+        if name in collapsed:
+            collapsed.remove(name)
         else:
-            print('Unknown choice.')
+            children = [c.name for c in categories.values() if c.parent == name]
+            if children:
+                child = sorted(children)[0]
+                for i, (n, _) in enumerate(tree):
+                    if n == child:
+                        index = i
+                        break
+        refresh()
+
+    @kb.add('enter')
+    def _(event) -> None:
+        event.app.run_in_terminal(rename_category)
+
+    @kb.add('e')
+    def _(event) -> None:
+        event.app.run_in_terminal(change_parent)
+
+    @kb.add('d')
+    def _(event) -> None:
+        event.app.run_in_terminal(delete_category)
+
+    @kb.add('q')
+    def _(event) -> None:
+        event.app.exit()
+
+    refresh()
+
+    app = Application(layout=Layout(TextArea('')), key_bindings=kb, full_screen=True)
+    app.run()
