@@ -46,8 +46,9 @@ On startup the CLI is pre-populated with sample categories and contents. The
 `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
-The `tree_ui` command opens a full-screen tree browser that allows renaming and
-re-parenting categories using the keyboard or mouse.
+The `tree_ui` command opens a full-screen tree browser. A right-click context
+menu allows inline renaming or deleting of categories. You can still rename or
+re-parent using the keyboard shortcuts as well.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
 parent selection dialog is shown. The command validates that the selected
