@@ -1,6 +1,6 @@
 """Utility functions for CMS data management."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from .models import Category, Content
 
@@ -39,26 +39,51 @@ def seed_data(categories: Dict[str, Category], contents: Dict[str, Content]) -> 
     contents.update(seed_contents)
 
 
-def print_category_tree(categories: Dict[str, Category]) -> None:
-    """Display categories in a hierarchical tree."""
+def print_category_tree(
+    categories: Dict[str, Category],
+    collapsed: Optional[Set[str]] = None,
+    selected: Optional[str] = None,
+) -> None:
+    """Display categories in a hierarchical tree.
+
+    Parameters
+    ----------
+    categories:
+        Mapping of category name to :class:`Category`.
+    collapsed:
+        Set of category names that should be displayed collapsed.
+    selected:
+        Currently selected category name for highlighting.
+    """
+
+    if collapsed is None:
+        collapsed = set()
+
     children: Dict[Optional[str], List[str]] = {}
     for cat in categories.values():
         children.setdefault(cat.parent, []).append(cat.name)
 
     def _print(node: Optional[str], indent: int = 0) -> None:
         for child in sorted(children.get(node, [])):
-            print('  ' * indent + child)
-            _print(child, indent + 1)
+            prefix = '+' if child in collapsed else '-'
+            marker = '>' if child == selected else ' '
+            print('  ' * indent + f"{marker}{prefix} {child}")
+            if child not in collapsed:
+                _print(child, indent + 1)
 
     _print(None)
 
 
 def interactive_tree_edit(categories: Dict[str, Category]) -> None:
-    """Interactively modify categories using simple key shortcuts."""
+    """Interactively modify categories with selection and collapsing."""
+
+    collapsed: Set[str] = set()
+    selected: Optional[str] = next(iter(categories)) if categories else None
 
     def rename_category() -> None:
-        name = input('Category to rename: ').strip()
-        if name not in categories:
+        nonlocal selected
+        name = input(f'Category to rename [{selected or ""}]: ').strip() or selected
+        if not name or name not in categories:
             print('Category not found.')
             return
         new_name = input('New name: ').strip()
@@ -71,34 +96,63 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
         for c in categories.values():
             if c.parent == name:
                 c.parent = new_name
+        if name in collapsed:
+            collapsed.remove(name)
+            collapsed.add(new_name)
+        if selected == name:
+            selected = new_name
 
     def change_parent() -> None:
-        name = input('Category to move: ').strip()
-        if name not in categories:
+        name = input(f'Category to move [{selected or ""}]: ').strip() or selected
+        if not name or name not in categories:
             print('Category not found.')
             return
         parent = input('New parent (blank for none): ').strip() or None
         categories[name].parent = parent
 
     def delete_category() -> None:
-        name = input('Category to delete: ').strip()
-        if name not in categories:
+        nonlocal selected
+        name = input(f'Category to delete [{selected or ""}]: ').strip() or selected
+        if not name or name not in categories:
             print('Category not found.')
             return
         categories.pop(name)
+        collapsed.discard(name)
         for c in categories.values():
             if c.parent == name:
                 c.parent = None
+        if selected == name:
+            selected = None
+
+    def toggle() -> None:
+        if not selected:
+            return
+        if selected in collapsed:
+            collapsed.remove(selected)
+        else:
+            # only allow collapsing if node has children
+            if any(c.parent == selected for c in categories.values()):
+                collapsed.add(selected)
+
+    def select_category() -> None:
+        nonlocal selected
+        name = input('Category to select: ').strip()
+        if name in categories:
+            selected = name
+        else:
+            print('Category not found.')
 
     actions = {
         'r': rename_category,
         'e': change_parent,
         'd': delete_category,
+        't': toggle,
+        's': select_category,
     }
 
     while True:
-        print_category_tree(categories)
-        choice = input('[r]ename, [e]dit parent, [d]elete, [q]uit: ').strip().lower()
+        print_category_tree(categories, collapsed, selected)
+        choice = input('[r]ename, [e]dit parent, [d]elete, [t]oggle, [s]elect, [q]uit: ').strip().lower()
         if choice == 'q':
             break
         action = actions.get(choice)
