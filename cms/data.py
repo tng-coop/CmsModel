@@ -7,6 +7,7 @@ from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.widgets import TextArea
+from prompt_toolkit.application import run_in_terminal
 
 
 def seed_data(categories: Dict[str, Category], contents: Dict[str, Content]) -> None:
@@ -232,15 +233,15 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
 
     @kb.add('enter')
     def _(event) -> None:
-        event.app.run_in_terminal(rename_category)
+        run_in_terminal(rename_category)
 
     @kb.add('e')
     def _(event) -> None:
-        event.app.run_in_terminal(change_parent)
+        run_in_terminal(change_parent)
 
     @kb.add('d')
     def _(event) -> None:
-        event.app.run_in_terminal(delete_category)
+        run_in_terminal(delete_category)
 
     @kb.add('q')
     def _(event) -> None:
