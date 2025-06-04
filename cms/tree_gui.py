@@ -35,6 +35,11 @@ class TreeGui:
         self.menu.add_command(label="Delete", command=self._on_delete)
         self.tree.bind("<Button-3>", self._show_menu)
 
+        # Drag and drop support
+        self._dragging_item: str | None = None
+        self.tree.bind("<ButtonPress-1>", self._on_drag_start, add="+")
+        self.tree.bind("<ButtonRelease-1>", self._on_drag_stop, add="+")
+
         self._build_tree()
 
     # ----------------------------------------------------------------- tree utils
@@ -99,6 +104,41 @@ class TreeGui:
         if sel:
             self.tree.selection_set(sel)
             self.menu.tk_popup(event.x_root, event.y_root)
+
+    # -------------------------------------------------------------- drag & drop
+    def _on_drag_start(self, event) -> None:
+        """Record the item being dragged."""
+        self._dragging_item = self.tree.identify_row(event.y)
+
+    def _on_drag_stop(self, event) -> None:
+        """Handle dropping the dragged item onto a new parent."""
+        if not self._dragging_item:
+            return
+        target = self.tree.identify_row(event.y)
+        if target == self._dragging_item:
+            self._dragging_item = None
+            return
+        name = self.tree.item(self._dragging_item, "text")
+        parent = self.tree.item(target, "text") if target else None
+        self._move_node(name, parent)
+        self._dragging_item = None
+
+    def _move_node(self, name: str, parent: str | None) -> None:
+        """Change the parent of ``name`` if valid."""
+        if parent == name:
+            return
+        if parent and parent not in self.categories:
+            return
+        # Prevent cycles by ensuring ``parent`` is not a descendant of ``name``
+        p = parent
+        while p:
+            if p == name:
+                return
+            p = self.categories[p].parent
+        self.categories[name].parent = parent
+        self._build_tree()
+        self.tree.selection_set(self.nodes[name])
+        self._show_content(name)
 
     # -------------------------------------------------------------- content utils
     def _show_content(self, cat: str) -> None:

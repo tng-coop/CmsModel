@@ -59,7 +59,8 @@ removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
 The `tree_ui` command opens the same Tkinter window for editing categories and
 contents. Right-click a category to rename or delete it and double click a
-content item to edit its fields.
+content item to edit its fields. Drag a category onto another to move it in the
+hierarchy.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
 parent selection dialog is shown. The command validates that the selected
