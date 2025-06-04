@@ -16,7 +16,7 @@ COMMANDS = [
     'update_category', 'delete_category',
     'add_content', 'list_contents', 'get_content',
     'update_content', 'delete_content',
-    'seed_data', 'clear_all', 'tree_view', 'tree_edit'
+    'seed_data', 'clear_all', 'tree_view', 'tree_edit', 'tree_ui'
 ]
 
 
@@ -222,6 +222,12 @@ def run_cli() -> None:
                 print('No categories.')
         elif cmd == 'tree_edit':
             handle_tree_edit(tokens, categories)
+        elif cmd == 'tree_ui':
+            if categories:
+                from .tree_ui import TreeEditor
+                TreeEditor(categories).run()
+            else:
+                print('No categories.')
         elif cmd == 'seed_data':
             seed_data(categories, contents)
             print('Sample data loaded.')
