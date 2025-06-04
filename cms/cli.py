@@ -1,6 +1,6 @@
 """Command line interface for the CMS demo."""
 
-from typing import Dict
+from typing import Dict, Optional
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.shortcuts import radiolist_dialog
@@ -18,6 +18,74 @@ COMMANDS = [
     'update_content', 'delete_content',
     'seed_data', 'clear_all', 'tree_view', 'tree_edit'
 ]
+
+
+def _choose_category(categories: Dict[str, Category]) -> Optional[str]:
+    """Interactive dialog to select a category."""
+    result = radiolist_dialog(
+        title='Edit Category',
+        text='Select category to edit:',
+        values=[(n, n) for n in sorted(categories.keys())],
+        mouse_support=True,
+    ).run()
+    return result
+
+
+def _choose_parent(categories: Dict[str, Category], current: str) -> Optional[str]:
+    """Interactive dialog to choose a new parent."""
+    options = [('none', 'None')] + [
+        (n, n) for n in sorted(categories.keys()) if n != current
+    ]
+    result = radiolist_dialog(
+        title='Edit Category',
+        text=f'Select new parent for "{current}":',
+        values=options,
+        mouse_support=True,
+    ).run()
+    if result is None:
+        return None
+    return None if result == 'none' else result
+
+
+def handle_tree_edit(tokens: list[str], categories: Dict[str, Category]) -> None:
+    """Handle the tree_edit command with optional arguments."""
+    if len(tokens) not in {1, 2, 3}:
+        print('Usage: tree_edit [name] [parent]')
+        return
+
+    if not categories:
+        print('No categories.')
+        return
+
+    if len(tokens) == 1:
+        name = _choose_category(categories)
+        if name is None:
+            print('Edit cancelled.')
+            return
+    else:
+        name = tokens[1]
+        if name not in categories:
+            print('Category not found.')
+            return
+
+    if len(tokens) == 3:
+        parent = tokens[2]
+        if parent.lower() == 'none':
+            parent = None
+        elif parent not in categories:
+            print('Parent category does not exist.')
+            return
+        elif parent == name:
+            print('A category cannot be its own parent.')
+            return
+    else:
+        parent = _choose_parent(categories, name)
+        if parent is None:
+            print('Edit cancelled.')
+            return
+
+    categories[name].parent = parent
+    print('Category updated.')
 
 
 def run_cli() -> None:
@@ -155,51 +223,7 @@ def run_cli() -> None:
             else:
                 print('No categories.')
         elif cmd == 'tree_edit':
-            if len(tokens) not in {1, 2, 3}:
-                print('Usage: tree_edit [name] [parent]')
-                continue
-
-            if len(tokens) == 1:
-                if not categories:
-                    print('No categories.')
-                    continue
-                result = radiolist_dialog(
-                    title='Edit Category',
-                    text='Select category to edit:',
-                    values=[(n, n) for n in sorted(categories.keys())],
-                    mouse_support=True,
-                ).run()
-                if result is None:
-                    print('Edit cancelled.')
-                    continue
-                name = result
-            else:
-                name = tokens[1]
-
-            cat = categories.get(name)
-            if not cat:
-                print('Category not found.')
-                continue
-
-            if len(tokens) == 3:
-                parent = tokens[2]
-            else:
-                options = [('none', 'None')] + [
-                    (n, n) for n in sorted(categories.keys()) if n != name
-                ]
-                result = radiolist_dialog(
-                    title='Edit Category',
-                    text=f'Select new parent for "{name}":',
-                    values=options,
-                    mouse_support=True,
-                ).run()
-                if result is None:
-                    print('Edit cancelled.')
-                    continue
-                parent = result
-
-            cat.parent = None if parent.lower() == 'none' else parent
-            print('Category updated.')
+            handle_tree_edit(tokens, categories)
         elif cmd == 'seed_data':
             seed_data(categories, contents)
             print('Sample data loaded.')
