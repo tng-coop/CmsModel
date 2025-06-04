@@ -47,6 +47,7 @@ removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
-parent selection dialog is shown. Tab completion is available for commands
-and relevant arguments such as category
-names, content names, types and actions.
+parent selection dialog is shown. The command validates that the selected
+parent exists and is not the category itself. Tab completion is available
+for commands and relevant arguments such as category names, content names,
+types and actions.
