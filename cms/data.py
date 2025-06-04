@@ -10,13 +10,15 @@ def seed_data(categories: Dict[str, Category], contents: Dict[str, Content]) -> 
     categories.clear()
     contents.clear()
 
+    # Create a root CMS node so that all menu items are grouped under it.
     seed_categories = {
-        'Home': Category('Home'),
-        'About': Category('About'),
-        'Mass Times': Category('Mass Times'),
-        'Sacraments': Category('Sacraments'),
-        'Ministries': Category('Ministries'),
-        'Downloads': Category('Downloads'),
+        "CMS": Category("CMS"),
+        'Home': Category('Home', parent='CMS'),
+        'About': Category('About', parent='CMS'),
+        'Mass Times': Category('Mass Times', parent='CMS'),
+        'Sacraments': Category('Sacraments', parent='CMS'),
+        'Ministries': Category('Ministries', parent='CMS'),
+        'Downloads': Category('Downloads', parent='CMS'),
         'Staff': Category('Staff', parent='About'),
         'History': Category('History', parent='About'),
         'Contact': Category('Contact', parent='About'),
