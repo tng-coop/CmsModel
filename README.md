@@ -45,6 +45,7 @@ On startup the CLI is pre-populated with sample categories and contents. The
 `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` without arguments opens an interactive mode
-for renaming, moving or deleting categories. Tab completion is available for
+for renaming, moving or deleting categories. The editor now supports selecting
+nodes and expanding or collapsing branches. Tab completion is available for
 commands and relevant arguments such as category names, content names, types and
 actions.
