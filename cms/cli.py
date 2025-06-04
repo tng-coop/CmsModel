@@ -92,8 +92,8 @@ def run_cli() -> None:
     categories: Dict[str, Category] = {}
     contents: Dict[str, Content] = {}
     seed_data(categories, contents)
-    from .tree_ui import TreeEditor
-    TreeEditor(categories, contents).run()
+    from .tree_gui import TreeGui
+    TreeGui(categories, contents).run()
     completer = CmsCompleter(COMMANDS, categories, contents)
     print('Interactive CLI. Sample data loaded. Type "help" for commands.')
 
@@ -226,8 +226,8 @@ def run_cli() -> None:
             handle_tree_edit(tokens, categories)
         elif cmd == 'tree_ui':
             if categories:
-                from .tree_ui import TreeEditor
-                TreeEditor(categories, contents).run()
+                from .tree_gui import TreeGui
+                TreeGui(categories, contents).run()
             else:
                 print('No categories.')
         elif cmd == 'seed_data':
