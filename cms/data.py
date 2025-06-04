@@ -246,7 +246,5 @@ def interactive_tree_edit(categories: Dict[str, Category]) -> None:
     def _(event) -> None:
         event.app.exit()
 
-    refresh()
-
-    app = Application(layout=Layout(TextArea('')), key_bindings=kb, full_screen=True)
-    app.run()
+    app = Application(layout=Layout(TextArea("")), key_bindings=kb, full_screen=True)
+    app.run(pre_run=refresh)
