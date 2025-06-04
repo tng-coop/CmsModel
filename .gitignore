@@ -1,0 +1,18 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment folders
+venv/
+.env/
+.venv/
+
+# IDE/editor settings (optional but recommended)
+.vscode/
+.idea/
+
+# OS-level files
+.DS_Store
+Thumbs.db
+
