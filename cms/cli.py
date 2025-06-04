@@ -155,14 +155,32 @@ def run_cli() -> None:
             else:
                 print('No categories.')
         elif cmd == 'tree_edit':
-            if len(tokens) not in {2, 3}:
-                print('Usage: tree_edit <name> [parent]')
+            if len(tokens) not in {1, 2, 3}:
+                print('Usage: tree_edit [name] [parent]')
                 continue
-            name = tokens[1]
+
+            if len(tokens) == 1:
+                if not categories:
+                    print('No categories.')
+                    continue
+                result = radiolist_dialog(
+                    title='Edit Category',
+                    text='Select category to edit:',
+                    values=[(n, n) for n in sorted(categories.keys())],
+                    mouse_support=True,
+                ).run()
+                if result is None:
+                    print('Edit cancelled.')
+                    continue
+                name = result
+            else:
+                name = tokens[1]
+
             cat = categories.get(name)
             if not cat:
                 print('Category not found.')
                 continue
+
             if len(tokens) == 3:
                 parent = tokens[2]
             else:
@@ -179,6 +197,7 @@ def run_cli() -> None:
                     print('Edit cancelled.')
                     continue
                 parent = result
+
             cat.parent = None if parent.lower() == 'none' else parent
             print('Category updated.')
         elif cmd == 'seed_data':
