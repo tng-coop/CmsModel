@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
@@ -51,6 +51,20 @@ def seed_data(categories: Dict[str, 'Category'], contents: Dict[str, 'Content'])
         'old_news': Content('old_news', 'tinymce', 'Home', 'delete'),
     }
     contents.update(seed_contents)
+
+
+def print_category_tree(categories: Dict[str, Category]) -> None:
+    """Display categories in a hierarchical tree."""
+    children: Dict[Optional[str], List[str]] = {}
+    for cat in categories.values():
+        children.setdefault(cat.parent, []).append(cat.name)
+
+    def _print(node: Optional[str], indent: int = 0) -> None:
+        for child in sorted(children.get(node, [])):
+            print('  ' * indent + child)
+            _print(child, indent + 1)
+
+    _print(None)
 
 
 class CmsCompleter(Completer):
@@ -112,6 +126,11 @@ class CmsCompleter(Completer):
                 yield from yield_words(self.categories.keys())
             elif arg_index == 4:
                 yield from yield_words(['delete', 'update', 'new'])
+        elif cmd == 'tree_edit':
+            if arg_index == 1:
+                yield from yield_words(self.categories.keys())
+            elif arg_index == 2:
+                yield from yield_words(self.categories.keys())
         else:
             yield from yield_words(self.commands)
 
@@ -124,12 +143,13 @@ def main():
         'update_category', 'delete_category',
         'add_content', 'list_contents', 'get_content',
         'update_content', 'delete_content',
-        'seed_data',
+        'seed_data', 'clear_all', 'tree_view', 'tree_edit'
     ]
     categories: Dict[str, Category] = {}
     contents: Dict[str, Content] = {}
+    seed_data(categories, contents)
     completer = CmsCompleter(commands, categories, contents)
-    print('Interactive CLI. Type "help" for commands.')
+    print('Interactive CLI. Sample data loaded. Type "help" for commands.')
     while True:
         try:
             text = session.prompt('> ', completer=completer)
@@ -255,6 +275,29 @@ def main():
                 print('Content deleted.')
             else:
                 print('Content not found.')
+
+        elif cmd == 'clear_all':
+            categories.clear()
+            contents.clear()
+            print('All data cleared.')
+
+        elif cmd == 'tree_view':
+            if categories:
+                print_category_tree(categories)
+            else:
+                print('No categories.')
+
+        elif cmd == 'tree_edit':
+            if len(tokens) != 3:
+                print('Usage: tree_edit <name> <parent>')
+                continue
+            name, parent = tokens[1], tokens[2]
+            cat = categories.get(name)
+            if cat:
+                cat.parent = None if parent.lower() == 'none' else parent
+                print('Category updated.')
+            else:
+                print('Category not found.')
 
         elif cmd == 'seed_data':
             seed_data(categories, contents)
