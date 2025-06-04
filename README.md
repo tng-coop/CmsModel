@@ -38,6 +38,7 @@ seed_data
 clear_all
 tree_view
 tree_edit [name] [parent]
+tree_ui
 ```
 
 These commands operate on in-memory data only and are intended for experimentation.
@@ -45,6 +46,8 @@ On startup the CLI is pre-populated with sample categories and contents. The
 `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
+The `tree_ui` command opens a full-screen tree browser that allows renaming and
+re-parenting categories using the keyboard or mouse.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
 parent selection dialog is shown. The command validates that the selected
