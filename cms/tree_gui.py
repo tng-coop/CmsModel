@@ -15,9 +15,26 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QInputDialog,
+    QAbstractItemView,
 )
 
 from .models import Category, Content
+
+
+class DragTreeWidget(QTreeWidget):
+    """QTreeWidget that emits a callback after items are moved."""
+
+    def __init__(self, on_drop, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._on_drop = on_drop
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
+
+    def dropEvent(self, event):
+        super().dropEvent(event)
+        if self._on_drop:
+            self._on_drop()
 
 
 class TreeGui:
@@ -33,7 +50,7 @@ class TreeGui:
         self.window = QWidget()
         self.window.setWindowTitle("CMS Tree GUI")
 
-        self.tree = QTreeWidget()
+        self.tree = DragTreeWidget(self._sync_categories)
         self.tree.setHeaderHidden(True)
 
         self.content_list = QListWidget()
@@ -59,7 +76,7 @@ class TreeGui:
             children.setdefault(cat.parent, []).append(cat.name)
 
         def add_nodes(parent: str | None, parent_item: QTreeWidgetItem | None = None) -> None:
-            for name in sorted(children.get(parent, [])):
+            for name in children.get(parent, []):
                 item = QTreeWidgetItem([name])
                 if parent_item:
                     parent_item.addChild(item)
@@ -70,6 +87,29 @@ class TreeGui:
 
         add_nodes(None)
         self.tree.expandAll()
+
+    def _sync_categories(self) -> None:
+        """Update category parents and order based on the tree structure."""
+
+        ordered: list[tuple[str, str | None]] = []
+
+        def walk(item: QTreeWidgetItem, parent: str | None) -> None:
+            name = item.text(0)
+            ordered.append((name, parent))
+            for i in range(item.childCount()):
+                walk(item.child(i), name)
+
+        for i in range(self.tree.topLevelItemCount()):
+            walk(self.tree.topLevelItem(i), None)
+
+        new_cats: Dict[str, Category] = {}
+        for name, parent in ordered:
+            cat = self.categories.get(name, Category(name))
+            cat.parent = parent
+            new_cats[name] = cat
+
+        self.categories.clear()
+        self.categories.update(new_cats)
 
     # --------------------------------------------------------------------- actions
     def _on_select(self) -> None:
