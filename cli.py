@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import Completer, Completion
 
 
 @dataclass
@@ -19,6 +19,103 @@ class Content:
     action: str
 
 
+def seed_data(categories: Dict[str, 'Category'], contents: Dict[str, 'Content']) -> None:
+    """Populate dictionaries with sample catholic church data."""
+    categories.clear()
+    contents.clear()
+
+    seed_categories = {
+        'Home': Category('Home'),
+        'About': Category('About'),
+        'Mass Times': Category('Mass Times'),
+        'Sacraments': Category('Sacraments'),
+        'Ministries': Category('Ministries'),
+        'Downloads': Category('Downloads'),
+        'Staff': Category('Staff', parent='About'),
+        'History': Category('History', parent='About'),
+        'Contact': Category('Contact', parent='About'),
+        'Baptism': Category('Baptism', parent='Sacraments'),
+        'Confirmation': Category('Confirmation', parent='Sacraments'),
+        'Marriage': Category('Marriage', parent='Sacraments'),
+        'Youth Ministry': Category('Youth Ministry', parent='Ministries'),
+        'Choir': Category('Choir', parent='Ministries'),
+        'High School': Category('High School', parent='Youth Ministry'),
+    }
+    categories.update(seed_categories)
+
+    seed_contents = {
+        'office_hours': Content('office_hours', 'office_info', 'Home', 'update'),
+        'welcome': Content('welcome', 'tinymce', 'Home', 'new'),
+        'bulletin': Content('bulletin', 'pdf', 'Downloads', 'update'),
+        'youth_banner': Content('youth_banner', 'banner', 'Youth Ministry', 'new'),
+        'old_news': Content('old_news', 'tinymce', 'Home', 'delete'),
+    }
+    contents.update(seed_contents)
+
+
+class CmsCompleter(Completer):
+    """Context aware tab completion for the CLI."""
+
+    def __init__(self, commands, categories, contents):
+        self.commands = commands
+        self.categories = categories
+        self.contents = contents
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor.lstrip()
+        tokens = text.split()
+        word = document.get_word_before_cursor()
+
+        def yield_words(options):
+            for opt in options:
+                if opt.lower().startswith(word.lower()):
+                    yield Completion(opt, start_position=-len(word))
+
+        if len(tokens) <= 1:
+            yield from yield_words(self.commands)
+            return
+
+        cmd = tokens[0]
+        arg_index = len(tokens) - 1
+        if text.endswith(' '):
+            arg_index += 1
+            word = ''
+
+        if cmd in {'get_category', 'delete_category', 'update_category'}:
+            if arg_index == 1:
+                yield from yield_words(self.categories.keys())
+            elif arg_index == 2 and cmd == 'update_category':
+                yield from yield_words(self.categories.keys())
+        elif cmd == 'add_category':
+            if arg_index == 2:
+                yield from yield_words(self.categories.keys())
+        elif cmd in {'get_content', 'delete_content'}:
+            if arg_index == 1:
+                yield from yield_words(self.contents.keys())
+        elif cmd == 'update_content':
+            if arg_index == 1:
+                yield from yield_words(self.contents.keys())
+            elif arg_index == 2:
+                yield from yield_words(['content_type', 'category', 'action'])
+            elif arg_index == 3:
+                field = tokens[2]
+                if field == 'content_type':
+                    yield from yield_words(['office_info', 'tinymce', 'pdf', 'banner'])
+                elif field == 'category':
+                    yield from yield_words(self.categories.keys())
+                elif field == 'action':
+                    yield from yield_words(['delete', 'update', 'new'])
+        elif cmd == 'add_content':
+            if arg_index == 2:
+                yield from yield_words(['office_info', 'tinymce', 'pdf', 'banner'])
+            elif arg_index == 3:
+                yield from yield_words(self.categories.keys())
+            elif arg_index == 4:
+                yield from yield_words(['delete', 'update', 'new'])
+        else:
+            yield from yield_words(self.commands)
+
+
 def main():
     session = PromptSession()
     commands = [
@@ -27,10 +124,11 @@ def main():
         'update_category', 'delete_category',
         'add_content', 'list_contents', 'get_content',
         'update_content', 'delete_content',
+        'seed_data',
     ]
-    completer = WordCompleter(commands, ignore_case=True)
     categories: Dict[str, Category] = {}
     contents: Dict[str, Content] = {}
+    completer = CmsCompleter(commands, categories, contents)
     print('Interactive CLI. Type "help" for commands.')
     while True:
         try:
@@ -157,6 +255,10 @@ def main():
                 print('Content deleted.')
             else:
                 print('Content not found.')
+
+        elif cmd == 'seed_data':
+            seed_data(categories, contents)
+            print('Sample data loaded.')
 
         else:
             print(f'Unknown command: {cmd}')

@@ -34,6 +34,10 @@ list_contents
 get_content <name>
 update_content <name> <field> <value>
 delete_content <name>
+seed_data
 ```
 
 These commands operate on in-memory data only and are intended for experimentation.
+The `seed_data` command populates sample categories and contents representing a
+Catholic church homepage. Tab completion is available for commands and relevant
+arguments such as category names, content names, types and actions.
