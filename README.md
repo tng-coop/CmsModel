@@ -1,7 +1,7 @@
 # Interactive GUI
 
 This project demonstrates a simple interface built with
-[Tkinter](https://docs.python.org/3/library/tkinter.html) for the graphical
+[PyQt](https://riverbankcomputing.com/software/pyqt/) for the graphical
 tree view. The command line functionality still uses
 [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
 
@@ -20,7 +20,7 @@ Run the CLI with Python:
 ```bash
 python cli.py
 ```
-The application opens a Tkinter window showing the category tree. Closing the
+The application opens a PyQt window showing the category tree. Closing the
 window returns you to the interactive prompt. Type `help` to see available
 commands and `exit` to quit.
 
@@ -57,7 +57,7 @@ menu is organized under a root category called `CMS`, with items like `Home` and
 `About` appearing as children. The `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
-The `tree_ui` command opens the same Tkinter window for editing categories and
+The `tree_ui` command opens the same PyQt window for editing categories and
 contents. Right-click a category to rename or delete it and double click a
 content item to edit its fields.
 When run with no arguments, it opens a mouse-friendly chooser for the
