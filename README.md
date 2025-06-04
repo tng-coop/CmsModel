@@ -37,13 +37,14 @@ delete_content <name>
 seed_data
 clear_all
 tree_view
-tree_edit <name> <parent>
+tree_edit [name] [parent]
 ```
 
 These commands operate on in-memory data only and are intended for experimentation.
 On startup the CLI is pre-populated with sample categories and contents. The
 `seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
-hierarchical tree and `tree_edit` changes the parent of a category. Tab
-completion is available for commands and relevant arguments such as category
-names, content names, types and actions.
+hierarchical tree and `tree_edit` without arguments opens an interactive mode
+for renaming, moving or deleting categories. Tab completion is available for
+commands and relevant arguments such as category names, content names, types and
+actions.

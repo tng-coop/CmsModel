@@ -51,3 +51,58 @@ def print_category_tree(categories: Dict[str, Category]) -> None:
             _print(child, indent + 1)
 
     _print(None)
+
+
+def interactive_tree_edit(categories: Dict[str, Category]) -> None:
+    """Interactively modify categories using simple key shortcuts."""
+
+    def rename_category() -> None:
+        name = input('Category to rename: ').strip()
+        if name not in categories:
+            print('Category not found.')
+            return
+        new_name = input('New name: ').strip()
+        if not new_name:
+            print('Name cannot be empty.')
+            return
+        cat = categories.pop(name)
+        cat.name = new_name
+        categories[new_name] = cat
+        for c in categories.values():
+            if c.parent == name:
+                c.parent = new_name
+
+    def change_parent() -> None:
+        name = input('Category to move: ').strip()
+        if name not in categories:
+            print('Category not found.')
+            return
+        parent = input('New parent (blank for none): ').strip() or None
+        categories[name].parent = parent
+
+    def delete_category() -> None:
+        name = input('Category to delete: ').strip()
+        if name not in categories:
+            print('Category not found.')
+            return
+        categories.pop(name)
+        for c in categories.values():
+            if c.parent == name:
+                c.parent = None
+
+    actions = {
+        'r': rename_category,
+        'e': change_parent,
+        'd': delete_category,
+    }
+
+    while True:
+        print_category_tree(categories)
+        choice = input('[r]ename, [e]dit parent, [d]elete, [q]uit: ').strip().lower()
+        if choice == 'q':
+            break
+        action = actions.get(choice)
+        if action:
+            action()
+        else:
+            print('Unknown choice.')
