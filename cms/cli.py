@@ -26,7 +26,6 @@ def _choose_category(categories: Dict[str, Category]) -> Optional[str]:
         title='Edit Category',
         text='Select category to edit:',
         values=[(n, n) for n in sorted(categories.keys())],
-        mouse_support=True,
     ).run()
     return result
 
@@ -40,7 +39,6 @@ def _choose_parent(categories: Dict[str, Category], current: str) -> Optional[st
         title='Edit Category',
         text=f'Select new parent for "{current}":',
         values=options,
-        mouse_support=True,
     ).run()
     if result is None:
         return None
