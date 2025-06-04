@@ -57,15 +57,17 @@ class TreeEditor:
         root.expanded = True
         return root
 
-    def _visible_lines(self, node: TreeNode, prefix: str = "") -> List[Tuple[TreeNode, str]]:
+    def _visible_lines(self, node: TreeNode, prefix: str = "", show_node: bool = True) -> List[Tuple[TreeNode, str]]:
         lines: List[Tuple[TreeNode, str]] = []
-        icon = "   "
-        if node.children:
-            icon = "[-]" if node.expanded else "[+]"
-        lines.append((node, f"{prefix}{icon} {node.name}"))
-        if node.expanded:
+        if show_node:
+            icon = "   "
+            if node.children:
+                icon = "[-]" if node.expanded else "[+]"
+            lines.append((node, f"{prefix}{icon} {node.name}"))
+            prefix += "    "
+        if node.expanded or not show_node:
             for child in node.children:
-                lines.extend(self._visible_lines(child, prefix + "    "))
+                lines.extend(self._visible_lines(child, prefix, True))
         return lines
 
     def _collect_descendants(self, node: TreeNode) -> List[str]:
@@ -116,7 +118,7 @@ class TreeEditor:
 
     def _reset_selection(self, name: str) -> None:
         self.selected_index = 0
-        for i, (n, _) in enumerate(self._visible_lines(self.root)):
+        for i, (n, _) in enumerate(self._visible_lines(self.root, show_node=False)):
             if n.name == name:
                 self.selected_index = i
                 break
@@ -178,7 +180,7 @@ class TreeEditor:
     # ------------------------------------------------------------------ layout
     def _render(self):
         fragments = []
-        self._lines = self._visible_lines(self.root)
+        self._lines = self._visible_lines(self.root, show_node=False)
         if not self._lines:
             return fragments
         if self.selected_index < 0:
