@@ -3,6 +3,7 @@
 from typing import Dict
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.shortcuts import radiolist_dialog
 
 from .completer import CmsCompleter
 from .data import print_category_tree, seed_data
@@ -154,16 +155,32 @@ def run_cli() -> None:
             else:
                 print('No categories.')
         elif cmd == 'tree_edit':
-            if len(tokens) != 3:
-                print('Usage: tree_edit <name> <parent>')
+            if len(tokens) not in {2, 3}:
+                print('Usage: tree_edit <name> [parent]')
                 continue
-            name, parent = tokens[1], tokens[2]
+            name = tokens[1]
             cat = categories.get(name)
-            if cat:
-                cat.parent = None if parent.lower() == 'none' else parent
-                print('Category updated.')
-            else:
+            if not cat:
                 print('Category not found.')
+                continue
+            if len(tokens) == 3:
+                parent = tokens[2]
+            else:
+                options = [('none', 'None')] + [
+                    (n, n) for n in sorted(categories.keys()) if n != name
+                ]
+                result = radiolist_dialog(
+                    title='Edit Category',
+                    text=f'Select new parent for "{name}":',
+                    values=options,
+                    mouse_support=True,
+                ).run()
+                if result is None:
+                    print('Edit cancelled.')
+                    continue
+                parent = result
+            cat.parent = None if parent.lower() == 'none' else parent
+            print('Category updated.')
         elif cmd == 'seed_data':
             seed_data(categories, contents)
             print('Sample data loaded.')
