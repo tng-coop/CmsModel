@@ -17,8 +17,9 @@ Run the CLI with Python:
 ```bash
 python cli.py
 ```
-
-You will be greeted with an interactive prompt. Type `help` to see available commands and `exit` to quit.
+The application opens the full-screen tree UI automatically. After you exit the
+UI you will be greeted with an interactive prompt. Type `help` to see available
+commands and `exit` to quit.
 
 The CLI now supports simple management of **categories** and **content** items. Each category may have a `parent` category. Content has `content_type`, `category` and `action` fields. Use the following commands to manage them:
 
@@ -49,7 +50,8 @@ hierarchical tree and `tree_edit` lets you change the parent of a category.
 The `tree_ui` command opens a full-screen tree browser. A right-click context
 menu allows inline renaming or deleting of categories. You can still rename or
 re-parent using the keyboard shortcuts as well. The tree now displays a content
-panel on the right showing items for the selected category.
+panel on the right showing items for the selected category. Each listed content
+item has an `[Edit]` button which opens a dialog for modifying the item.
 When run with no arguments, it opens a mouse-friendly chooser for the
 category and then the parent. If a name is provided but no parent, only the
 parent selection dialog is shown. The command validates that the selected
