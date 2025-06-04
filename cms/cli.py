@@ -225,7 +225,7 @@ def run_cli() -> None:
         elif cmd == 'tree_ui':
             if categories:
                 from .tree_ui import TreeEditor
-                TreeEditor(categories).run()
+                TreeEditor(categories, contents).run()
             else:
                 print('No categories.')
         elif cmd == 'seed_data':
