@@ -46,6 +46,7 @@ On startup the CLI is pre-populated with sample categories and contents. The
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` without arguments opens an interactive mode
 for renaming, moving or deleting categories. The editor now supports selecting
-nodes and expanding or collapsing branches. Tab completion is available for
-commands and relevant arguments such as category names, content names, types and
-actions.
+nodes and expanding or collapsing branches. You can navigate the tree using the
+arrow keys: up/down move the selection and left/right collapse or expand
+categories. Tab completion is available for commands and relevant arguments such
+as category names, content names, types and actions.
