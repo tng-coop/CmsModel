@@ -6,14 +6,14 @@ from typing import Dict, List, Optional, Tuple
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import HSplit, Layout, Window
+from prompt_toolkit.layout import HSplit, Layout, Window, VSplit
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
 from prompt_toolkit.mouse_events import MouseEventType, MouseButton
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.styles import Style
 
-from .models import Category
+from .models import Category, Content
 
 
 class TreeNode:
@@ -33,8 +33,9 @@ class TreeNode:
 class TreeEditor:
     """Full screen tree browser with rename and move commands."""
 
-    def __init__(self, categories: Dict[str, Category]):
+    def __init__(self, categories: Dict[str, Category], contents: Optional[Dict[str, Content]] = None):
         self.categories = categories
+        self.contents = contents or {}
         self.selected_index = 0
         self.root = self._build_tree()
         self._lines: List[Tuple[TreeNode, str]] = []
@@ -52,6 +53,13 @@ class TreeEditor:
             "status": "bg:#222222 #aaaaaa",
         })
         self.app = self._create_app()
+
+    def _selected_category(self) -> Optional[str]:
+        """Return the currently selected category name, or None."""
+        if not self._lines:
+            return None
+        node, _ = self._lines[self.selected_index]
+        return node.name
 
     # ------------------------------------------------------------------ utils
     def _build_tree(self) -> TreeNode:
@@ -349,11 +357,37 @@ class TreeEditor:
 
         return handler
 
+    def _render_content(self):
+        """Render the content panel for the selected category."""
+        fragments = []
+        cat = self._selected_category()
+        if not cat:
+            return fragments
+
+        header = f"Content for '{cat}':\n"
+        fragments.append(("class:status", header))
+
+        for c in self.contents.values():
+            if c.category == cat:
+                line = f"  {c.name} ({c.content_type}, {c.action})\n"
+                fragments.append(("", line))
+
+        return fragments
+
     def _create_app(self) -> Application:
         tree_control = FormattedTextControl(self._render, focusable=True, show_cursor=False)
         tree_window = Window(content=tree_control, wrap_lines=False)
-        body = HSplit([
+        content_control = FormattedTextControl(self._render_content, focusable=False)
+        content_window = Window(content=content_control, wrap_lines=True)
+
+        main_area = VSplit([
             tree_window,
+            Window(width=1, char="│", style="class:line"),
+            content_window,
+        ])
+
+        body = HSplit([
+            main_area,
             Window(height=1, char="─", style="class:line"),
             Window(
                 content=FormattedTextControl(
