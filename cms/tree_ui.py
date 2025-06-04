@@ -357,6 +357,68 @@ class TreeEditor:
 
         return handler
 
+    def _content_mouse_factory(self, name: str):
+        """Return mouse handler for content edit buttons."""
+
+        def handler(mouse_event):
+            if (
+                mouse_event.event_type == MouseEventType.MOUSE_UP
+                and mouse_event.button == MouseButton.LEFT
+            ):
+                self._edit_content(name)
+                self.app.invalidate()
+
+        return handler
+
+    def _edit_content(self, name: str) -> None:
+        """Prompt user to edit the given content item."""
+
+        c = self.contents.get(name)
+        if not c:
+            return
+
+        new_name = input_dialog(
+            title="Edit Content",
+            text="Name:",
+            default=c.name,
+        ).run()
+        if not new_name:
+            return
+
+        ctype = input_dialog(
+            title="Edit Content",
+            text="Content Type:",
+            default=c.content_type,
+        ).run()
+        if not ctype:
+            return
+
+        cat_choice = radiolist_dialog(
+            title="Edit Content",
+            text="Select Category:",
+            values=[(n, n) for n in sorted(self.categories.keys())],
+        ).run()
+        if cat_choice is None:
+            return
+
+        action_choice = radiolist_dialog(
+            title="Edit Content",
+            text="Select Action:",
+            values=[(a, a) for a in ["delete", "update", "new"]],
+        ).run()
+        if action_choice is None:
+            return
+
+        if new_name != name:
+            self.contents.pop(name, None)
+            self.contents[new_name] = c
+
+        c.name = new_name
+        c.content_type = ctype
+        c.category = cat_choice
+        c.action = action_choice
+
+
     def _render_content(self):
         """Render the content panel for the selected category."""
         fragments = []
@@ -369,8 +431,10 @@ class TreeEditor:
 
         for c in self.contents.values():
             if c.category == cat:
-                line = f"  {c.name} ({c.content_type}, {c.action})\n"
-                fragments.append(("", line))
+                fragments.append(("", f"  {c.name} ({c.content_type}, {c.action}) "))
+                fragments.append(
+                    ("class:status", "[Edit]\n", self._content_mouse_factory(c.name))
+                )
 
         return fragments
 
@@ -397,7 +461,7 @@ class TreeEditor:
                             (
                                 " Editing: Type text, Enter to save, Esc to cancel. "
                                 if self.is_editing
-                                else " Use ↑/↓ to move, ←/→ to collapse/expand, Right-click for menu, Q or Esc to quit. "
+                                else " Use ↑/↓ to move, ←/→ to collapse/expand, Right-click for menu, click [Edit] to modify content, Q or Esc to quit. "
                             ),
                         )
                     ]
