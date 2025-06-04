@@ -49,6 +49,11 @@ class TreeEditor:
         self.edit_index = -1
         self.edit_text = ""
 
+        self.is_editing_content = False
+        self.edit_content_name = ""
+        self.edit_content_values: List[str] = []
+        self.edit_content_field = 0
+
         self.bindings = self._create_bindings()
         self.style = Style.from_dict({
             "line": "bg:#444444",
@@ -217,6 +222,14 @@ class TreeEditor:
                     self._reset_selection(new_name)
                 self.is_editing = False
                 self.edit_index = -1
+            elif self.is_editing_content:
+                old = self.edit_content_name
+                name, ctype, cat, action = self.edit_content_values
+                if name != old:
+                    self.contents.pop(old, None)
+                self.contents[name] = Content(name, ctype, cat, action)
+                self.is_editing_content = False
+                self.edit_content_name = ""
             event.app.invalidate()
 
         @kb.add("escape")
@@ -224,6 +237,8 @@ class TreeEditor:
             if self.is_editing:
                 self.is_editing = False
                 self.edit_index = -1
+            elif self.is_editing_content:
+                self.is_editing_content = False
             elif self.show_menu:
                 self.show_menu = False
                 self.menu_parent_index = -1
@@ -236,13 +251,26 @@ class TreeEditor:
             if self.is_editing:
                 self.edit_text = self.edit_text[:-1]
                 event.app.invalidate()
+            elif self.is_editing_content:
+                val = self.edit_content_values[self.edit_content_field]
+                self.edit_content_values[self.edit_content_field] = val[:-1]
+                event.app.invalidate()
 
-        @kb.add("<any>", filter=Condition(lambda: self.is_editing))
+        @kb.add("<any>", filter=Condition(lambda: self.is_editing or self.is_editing_content))
         def _any_key(event) -> None:
             key = event.key_sequence[0].key
             if len(key) == 1:
-                self.edit_text += key
+                if self.is_editing:
+                    self.edit_text += key
+                else:
+                    val = self.edit_content_values[self.edit_content_field]
+                    self.edit_content_values[self.edit_content_field] = val + key
                 event.app.invalidate()
+
+        @kb.add("tab", filter=Condition(lambda: self.is_editing_content))
+        def _tab(event) -> None:
+            self.edit_content_field = (self.edit_content_field + 1) % 4
+            event.app.invalidate()
 
         @kb.add("r")
         def _rename(event) -> None:
@@ -367,58 +395,19 @@ class TreeEditor:
                 mouse_event.event_type == MouseEventType.MOUSE_UP
                 and mouse_event.button == MouseButton.LEFT
             ):
-                asyncio.create_task(self._edit_content(name))
+                self._start_content_edit(name)
 
         return handler
 
-    async def _edit_content(self, name: str) -> None:
-        """Prompt user to edit the given content item."""
-
+    def _start_content_edit(self, name: str) -> None:
+        """Begin inline editing for a content item."""
         c = self.contents.get(name)
         if not c:
             return
-
-        new_name = await input_dialog(
-            title="Edit Content",
-            text="Name:",
-            default=c.name,
-        ).run_async()
-        if not new_name:
-            return
-
-        ctype = await input_dialog(
-            title="Edit Content",
-            text="Content Type:",
-            default=c.content_type,
-        ).run_async()
-        if not ctype:
-            return
-
-        cat_choice = await radiolist_dialog(
-            title="Edit Content",
-            text="Select Category:",
-            values=[(n, n) for n in sorted(self.categories.keys())],
-        ).run_async()
-        if cat_choice is None:
-            return
-
-        action_choice = await radiolist_dialog(
-            title="Edit Content",
-            text="Select Action:",
-            values=[(a, a) for a in ["delete", "update", "new"]],
-        ).run_async()
-        if action_choice is None:
-            return
-
-        if new_name != name:
-            self.contents.pop(name, None)
-            self.contents[new_name] = c
-
-        c.name = new_name
-        c.content_type = ctype
-        c.category = cat_choice
-        c.action = action_choice
-
+        self.is_editing_content = True
+        self.edit_content_name = name
+        self.edit_content_values = [c.name, c.content_type, c.category, c.action]
+        self.edit_content_field = 0
         self.app.invalidate()
 
 
@@ -434,10 +423,19 @@ class TreeEditor:
 
         for c in self.contents.values():
             if c.category == cat:
-                fragments.append(("", f"  {c.name} ({c.content_type}, {c.action}) "))
-                fragments.append(
-                    ("class:status", "[Edit]\n", self._content_mouse_factory(c.name))
-                )
+                if self.is_editing_content and c.name == self.edit_content_name:
+                    labels = ["Name", "Type", "Category", "Action"]
+                    for i, label in enumerate(labels):
+                        val = self.edit_content_values[i]
+                        cursor = "|" if self.edit_content_field == i else ""
+                        style = "reverse" if self.edit_content_field == i else ""
+                        fragments.append((style, f"  {label}: {val}{cursor}\n"))
+                    fragments.append(("class:status", "(Tab to switch, Enter to save, Esc to cancel)\n"))
+                else:
+                    fragments.append(("", f"  {c.name} ({c.content_type}, {c.action}) "))
+                    fragments.append(
+                        ("class:status", "[Edit]\n", self._content_mouse_factory(c.name))
+                    )
 
         return fragments
 
@@ -463,7 +461,7 @@ class TreeEditor:
                             "class:status",
                             (
                                 " Editing: Type text, Enter to save, Esc to cancel. "
-                                if self.is_editing
+                                if self.is_editing or self.is_editing_content
                                 else " Use ↑/↓ to move, ←/→ to collapse/expand, Right-click for menu, click [Edit] to modify content, Q or Esc to quit. "
                             ),
                         )
