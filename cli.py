@@ -7,7 +7,7 @@ from prompt_toolkit.shortcuts import radiolist_dialog
 
 from completer import CmsCompleter
 from data import print_category_tree, seed_data
-from models import Category, Content
+from models import Category, Article
 
 
 COMMANDS = [
@@ -90,7 +90,7 @@ def run_cli() -> None:
     """Start the interactive command loop."""
     session = PromptSession()
     categories: Dict[str, Category] = {}
-    contents: Dict[str, Content] = {}
+    contents: Dict[str, Article] = {}
     seed_data(categories, contents)
     from tree_gui import TreeGui
     TreeGui(categories, contents).run()
@@ -159,30 +159,34 @@ def run_cli() -> None:
             else:
                 print('Category not found.')
         elif cmd == 'add_content':
-            if len(tokens) != 5:
-                print('Usage: add_content <name> <content_type> <category> <action>')
+            if len(tokens) < 3:
+                print('Usage: add_content <name> <categories> [archived]')
                 continue
-            name, ctype, cat, action = tokens[1:5]
-            if cat not in categories:
-                print('Category does not exist.')
+            name = tokens[1]
+            cats = [c.strip() for c in tokens[2].split(',') if c.strip()]
+            if not all(c in categories for c in cats):
+                print('One or more categories do not exist.')
                 continue
-            contents[name] = Content(name=name, content_type=ctype, category=cat, action=action)
-            print(f'Content "{name}" added.')
+            archived = tokens[3].lower() == 'true' if len(tokens) > 3 else False
+            contents[name] = Article(name=name, categories=cats, archived=archived)
+            print(f'Article "{name}" added.')
         elif cmd == 'list_contents':
             if contents:
                 for c in contents.values():
-                    print(f'{c.name}: type={c.content_type} category={c.category} action={c.action}')
+                    cats = ','.join(c.categories)
+                    print(f'{c.name}: categories=[{cats}] archived={c.archived}')
             else:
-                print('No contents.')
+                print('No articles.')
         elif cmd == 'get_content':
             if len(tokens) != 2:
                 print('Usage: get_content <name>')
                 continue
             c = contents.get(tokens[1])
             if c:
-                print(f'{c.name}: type={c.content_type} category={c.category} action={c.action}')
+                cats = ','.join(c.categories)
+                print(f'{c.name}: categories=[{cats}] archived={c.archived}')
             else:
-                print('Content not found.')
+                print('Article not found.')
         elif cmd == 'update_content':
             if len(tokens) != 4:
                 print('Usage: update_content <name> <field> <value>')
@@ -190,29 +194,28 @@ def run_cli() -> None:
             name, field_name, value = tokens[1:4]
             c = contents.get(name)
             if not c:
-                print('Content not found.')
+                print('Article not found.')
                 continue
-            if field_name == 'content_type':
-                c.content_type = value
-            elif field_name == 'category':
-                if value not in categories:
-                    print('Category does not exist.')
+            if field_name == 'categories':
+                cats = [cat.strip() for cat in value.split(',') if cat.strip()]
+                if not all(cat in categories for cat in cats):
+                    print('One or more categories do not exist.')
                     continue
-                c.category = value
-            elif field_name == 'action':
-                c.action = value
+                c.categories = cats
+            elif field_name == 'archived':
+                c.archived = value.lower() == 'true'
             else:
                 print('Unknown field.')
                 continue
-            print('Content updated.')
+            print('Article updated.')
         elif cmd == 'delete_content':
             if len(tokens) != 2:
                 print('Usage: delete_content <name>')
                 continue
             if contents.pop(tokens[1], None):
-                print('Content deleted.')
+                print('Article deleted.')
             else:
-                print('Content not found.')
+                print('Article not found.')
         elif cmd == 'clear_all':
             categories.clear()
             contents.clear()

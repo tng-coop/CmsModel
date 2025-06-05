@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -8,13 +8,13 @@ class Category:
 
     name: str
     parent: Optional[str] = None
+    sort_order_index: int = 0
 
 
 @dataclass
-class Content:
-    """Represents a content item."""
+class Article:
+    """Represents an article item."""
 
     name: str
-    content_type: str
-    category: str
-    action: str
+    categories: List[str]
+    archived: bool = False
