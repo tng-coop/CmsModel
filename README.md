@@ -52,9 +52,9 @@ tree_ui
 ```
 
 These commands operate on in-memory data only and are intended for experimentation.
-On startup the CLI is pre-populated with sample categories and contents. The
-menu is organized under a root category called `CMS`, with items like `Home` and
-`About` appearing as children. The `seed_data` command can be used to reload this data at any time. `clear_all`
+On startup the CLI is pre-populated with sample categories and contents. Top
+level items such as `Home` and `About` appear directly in the menu. The
+`seed_data` command can be used to reload this data at any time. `clear_all`
 removes all categories and contents. `tree_view` prints the categories in a
 hierarchical tree and `tree_edit` lets you change the parent of a category.
 The `tree_ui` command opens the same PyQt window for editing categories and
