@@ -15,7 +15,7 @@ from prompt_toolkit.mouse_events import MouseEventType, MouseButton
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.styles import Style
 
-from .models import Category, Content
+from models import Category, Content
 
 
 class TreeNode:

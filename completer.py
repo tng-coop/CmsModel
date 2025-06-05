@@ -4,7 +4,7 @@ from typing import Dict, Iterable
 
 from prompt_toolkit.completion import Completer, Completion
 
-from .models import Category, Content
+from models import Category, Content
 
 
 class CmsCompleter(Completer):

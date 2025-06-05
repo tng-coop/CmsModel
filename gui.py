@@ -1,6 +1,6 @@
-from cms.data import seed_data
-from cms.models import Category, Content
-from cms.tree_gui import TreeGui
+from data import seed_data
+from models import Category, Content
+from tree_gui import TreeGui
 
 if __name__ == '__main__':
     categories: dict[str, Category] = {}
