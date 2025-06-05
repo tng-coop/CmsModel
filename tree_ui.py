@@ -15,7 +15,7 @@ from prompt_toolkit.mouse_events import MouseEventType, MouseButton
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.styles import Style
 
-from models import Category, Content
+from models import Category, Article
 
 
 class TreeNode:
@@ -35,7 +35,7 @@ class TreeNode:
 class TreeEditor:
     """Full screen tree browser with rename and move commands."""
 
-    def __init__(self, categories: Dict[str, Category], contents: Optional[Dict[str, Content]] = None):
+    def __init__(self, categories: Dict[str, Category], contents: Optional[Dict[str, Article]] = None):
         self.categories = categories
         self.contents = contents or {}
         self.selected_index = 0
@@ -78,6 +78,13 @@ class TreeEditor:
                 nodes[cat.parent].children.append(node)
             else:
                 root.children.append(node)
+        # sort children based on sort_order_index
+        def sort_children(node: TreeNode):
+            node.children.sort(key=lambda n: n.category.sort_order_index if n.category else 0)
+            for child in node.children:
+                sort_children(child)
+
+        sort_children(root)
         root.expanded = True
         return root
 
@@ -224,10 +231,11 @@ class TreeEditor:
                 self.edit_index = -1
             elif self.is_editing_content:
                 old = self.edit_content_name
-                name, ctype, cat, action = self.edit_content_values
+                name, cats_str, archived_str = self.edit_content_values
+                cats = [c.strip() for c in cats_str.split(',') if c.strip()]
                 if name != old:
                     self.contents.pop(old, None)
-                self.contents[name] = Content(name, ctype, cat, action)
+                self.contents[name] = Article(name, cats, archived_str.lower() == 'true')
                 self.is_editing_content = False
                 self.edit_content_name = ""
             event.app.invalidate()
@@ -269,7 +277,7 @@ class TreeEditor:
 
         @kb.add("tab", filter=Condition(lambda: self.is_editing_content))
         def _tab(event) -> None:
-            self.edit_content_field = (self.edit_content_field + 1) % 4
+            self.edit_content_field = (self.edit_content_field + 1) % 3
             event.app.invalidate()
 
         @kb.add("r")
@@ -406,7 +414,7 @@ class TreeEditor:
             return
         self.is_editing_content = True
         self.edit_content_name = name
-        self.edit_content_values = [c.name, c.content_type, c.category, c.action]
+        self.edit_content_values = [c.name, ','.join(c.categories), str(c.archived).lower()]
         self.edit_content_field = 0
         self.app.invalidate()
 
@@ -422,9 +430,9 @@ class TreeEditor:
         fragments.append(("class:status", header))
 
         for c in self.contents.values():
-            if c.category == cat:
+            if cat in c.categories:
                 if self.is_editing_content and c.name == self.edit_content_name:
-                    labels = ["Name", "Type", "Category", "Action"]
+                    labels = ["Name", "Categories", "Archived"]
                     for i, label in enumerate(labels):
                         val = self.edit_content_values[i]
                         cursor = "|" if self.edit_content_field == i else ""
@@ -432,7 +440,8 @@ class TreeEditor:
                         fragments.append((style, f"  {label}: {val}{cursor}\n"))
                     fragments.append(("class:status", "(Tab to switch, Enter to save, Esc to cancel)\n"))
                 else:
-                    fragments.append(("", f"  {c.name} ({c.content_type}, {c.action}) "))
+                    cats = ",".join(c.categories)
+                    fragments.append(("", f"  {c.name} [{cats}] archived={c.archived} "))
                     fragments.append(
                         ("class:status", "[Edit]\n", self._content_mouse_factory(c.name))
                     )

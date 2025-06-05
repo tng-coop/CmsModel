@@ -1,4 +1,4 @@
-"""Simple PyQt-based tree editor for categories and contents."""
+"""Simple PyQt-based tree editor for categories and articles."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
 )
 
-from models import Category, Content
+from models import Category, Article
 from data import export_json
 
 
@@ -44,7 +44,7 @@ class DragTreeWidget(QTreeWidget):
 class TreeGui:
     """Display categories in a PyQt ``QTreeWidget`` and allow basic editing."""
 
-    def __init__(self, categories: Dict[str, Category], contents: Dict[str, Content]):
+    def __init__(self, categories: Dict[str, Category], contents: Dict[str, Article]):
         self.categories = categories
         self.contents = contents
         self.nodes: Dict[str, QTreeWidgetItem] = {}
@@ -84,12 +84,13 @@ class TreeGui:
     def _build_tree(self) -> None:
         self.tree.clear()
         self.nodes.clear()
-        children: Dict[str | None, list[str]] = {}
+        children: Dict[str | None, list[Category]] = {}
         for cat in self.categories.values():
-            children.setdefault(cat.parent, []).append(cat.name)
+            children.setdefault(cat.parent, []).append(cat)
 
         def add_nodes(parent: str | None, parent_item: QTreeWidgetItem | None = None) -> None:
-            for name in children.get(parent, []):
+            for cat in sorted(children.get(parent, []), key=lambda c: c.sort_order_index):
+                name = cat.name
                 item = QTreeWidgetItem([name])
                 if parent_item:
                     parent_item.addChild(item)
@@ -104,11 +105,13 @@ class TreeGui:
     def _sync_categories(self) -> None:
         """Update category parents and order based on the tree structure."""
 
-        ordered: list[tuple[str, str | None]] = []
+        ordered: list[tuple[str, str | None, int]] = []
 
         def walk(item: QTreeWidgetItem, parent: str | None) -> None:
             name = item.text(0)
-            ordered.append((name, parent))
+            parent_item = item.parent()
+            index = parent_item.indexOfChild(item) if parent_item else self.tree.indexOfTopLevelItem(item)
+            ordered.append((name, parent, index))
             for i in range(item.childCount()):
                 walk(item.child(i), name)
 
@@ -116,9 +119,10 @@ class TreeGui:
             walk(self.tree.topLevelItem(i), None)
 
         new_cats: Dict[str, Category] = {}
-        for name, parent in ordered:
+        for name, parent, idx in ordered:
             cat = self.categories.get(name, Category(name))
             cat.parent = parent
+            cat.sort_order_index = idx
             new_cats[name] = cat
 
         self.categories.clear()
@@ -148,9 +152,8 @@ class TreeGui:
             for c in self.categories.values():
                 if c.parent == name:
                     c.parent = new_name
-            for cont in self.contents.values():
-                if cont.category == name:
-                    cont.category = new_name
+            for art in self.contents.values():
+                art.categories = [new_name if c == name else c for c in art.categories]
             self._build_tree()
             self.tree.setCurrentItem(self.nodes[new_name])
             self._show_content(new_name)
@@ -166,6 +169,8 @@ class TreeGui:
             for c in self.categories.values():
                 if c.parent == name:
                     c.parent = None
+            for art in self.contents.values():
+                art.categories = [cat for cat in art.categories if cat != name]
             self._build_tree()
             self.content_list.clear()
         self._update_json()
@@ -190,8 +195,8 @@ class TreeGui:
         self._content_map.clear()
         idx = 0
         for c in self.contents.values():
-            if c.category == cat:
-                item = QListWidgetItem(f"{c.name} ({c.content_type}, {c.action})")
+            if cat in c.categories:
+                item = QListWidgetItem(f"{c.name} (archived: {c.archived})")
                 item.setData(Qt.UserRole, c.name)
                 self.content_list.addItem(item)
                 self._content_map[idx] = c.name
@@ -203,23 +208,33 @@ class TreeGui:
         if name is None:
             return
         c = self.contents[name]
-        new_name, ok = QInputDialog.getText(self.window, "Content Name", "Name:", text=c.name)
+        new_name, ok = QInputDialog.getText(self.window, "Article Name", "Name:", text=c.name)
         if not ok or not new_name:
             return
-        ctype, ok = QInputDialog.getText(self.window, "Content Type", "Type:", text=c.content_type)
-        if not ok or not ctype:
+        cat_str, ok = QInputDialog.getText(
+            self.window,
+            "Categories",
+            "Categories (comma separated):",
+            text=", ".join(c.categories),
+        )
+        if not ok:
             return
-        options = sorted(self.categories.keys())
-        parent, ok = QInputDialog.getText(self.window, "Category", "Category:", text=c.category)
-        if not ok or parent not in options:
-            parent = c.category
-        action, ok = QInputDialog.getText(self.window, "Action", "Action:", text=c.action)
-        if not ok or not action:
+        cats = [cat.strip() for cat in cat_str.split(',') if cat.strip()]
+        if not all(cat in self.categories for cat in cats):
             return
+        archived_str, ok = QInputDialog.getText(
+            self.window,
+            "Archived",
+            "Archived (true/false):",
+            text=str(c.archived).lower(),
+        )
+        if not ok:
+            return
+        archived = archived_str.lower() == 'true'
         if new_name != name:
             self.contents.pop(name)
-        self.contents[new_name] = Content(new_name, ctype, parent, action)
-        self._show_content(parent)
+        self.contents[new_name] = Article(new_name, cats, archived)
+        self._show_content(cats[0] if cats else '')
         self._update_json()
 
     def _update_json(self) -> None:

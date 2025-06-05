@@ -4,13 +4,13 @@ from typing import Dict, Iterable
 
 from prompt_toolkit.completion import Completer, Completion
 
-from models import Category, Content
+from models import Category, Article
 
 
 class CmsCompleter(Completer):
     """Context aware tab completion for the CLI."""
 
-    def __init__(self, commands: Iterable[str], categories: Dict[str, Category], contents: Dict[str, Content]):
+    def __init__(self, commands: Iterable[str], categories: Dict[str, Category], contents: Dict[str, Article]):
         self.commands = list(commands)
         self.categories = categories
         self.contents = contents
@@ -50,22 +50,18 @@ class CmsCompleter(Completer):
             if arg_index == 1:
                 yield from yield_words(self.contents.keys())
             elif arg_index == 2:
-                yield from yield_words(['content_type', 'category', 'action'])
+                yield from yield_words(['categories', 'archived'])
             elif arg_index == 3:
                 field = tokens[2]
-                if field == 'content_type':
-                    yield from yield_words(['office_info', 'tinymce', 'pdf', 'banner'])
-                elif field == 'category':
+                if field == 'categories':
                     yield from yield_words(self.categories.keys())
-                elif field == 'action':
-                    yield from yield_words(['delete', 'update', 'new'])
+                elif field == 'archived':
+                    yield from yield_words(['true', 'false'])
         elif cmd == 'add_content':
             if arg_index == 2:
-                yield from yield_words(['office_info', 'tinymce', 'pdf', 'banner'])
-            elif arg_index == 3:
                 yield from yield_words(self.categories.keys())
-            elif arg_index == 4:
-                yield from yield_words(['delete', 'update', 'new'])
+            elif arg_index == 3:
+                yield from yield_words(['true', 'false'])
         elif cmd == 'tree_edit':
             if arg_index == 1:
                 yield from yield_words(self.categories.keys())
