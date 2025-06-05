@@ -1,6 +1,7 @@
 """Utility functions for CMS data management."""
 
 from typing import Dict, List, Optional
+import json
 
 from models import Category, Content
 
@@ -52,3 +53,40 @@ def print_category_tree(categories: Dict[str, Category]) -> None:
             _print(child, indent + 1)
 
     _print(None)
+
+
+def export_json(categories: Dict[str, Category], contents: Dict[str, Content]) -> str:
+    """Return a JSON string representing the current tree data."""
+    data = {
+        "categories": [
+            {"name": c.name, "parent": c.parent} for c in categories.values()
+        ],
+        "contents": [
+            {
+                "name": c.name,
+                "content_type": c.content_type,
+                "category": c.category,
+                "action": c.action,
+            }
+            for c in contents.values()
+        ],
+    }
+    return json.dumps(data, indent=2)
+
+
+def load_json(
+    json_str: str, categories: Dict[str, Category], contents: Dict[str, Content]
+) -> None:
+    """Populate ``categories`` and ``contents`` from a JSON string."""
+    data = json.loads(json_str)
+    categories.clear()
+    contents.clear()
+    for cat in data.get("categories", []):
+        categories[cat["name"]] = Category(cat["name"], cat.get("parent"))
+    for cont in data.get("contents", []):
+        contents[cont["name"]] = Content(
+            cont["name"],
+            cont["content_type"],
+            cont["category"],
+            cont["action"],
+        )
