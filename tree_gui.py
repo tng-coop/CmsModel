@@ -13,12 +13,16 @@ from PyQt5.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QHBoxLayout,
+    QVBoxLayout,
+    QTabWidget,
+    QPlainTextEdit,
     QWidget,
     QInputDialog,
     QAbstractItemView,
 )
 
 from models import Category, Content
+from data import export_json
 
 
 class DragTreeWidget(QTreeWidget):
@@ -55,9 +59,17 @@ class TreeGui:
 
         self.content_list = QListWidget()
 
-        layout = QHBoxLayout(self.window)
-        layout.addWidget(self.tree)
-        layout.addWidget(self.content_list)
+        main_layout = QVBoxLayout(self.window)
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.tree)
+        top_layout.addWidget(self.content_list)
+        main_layout.addLayout(top_layout)
+
+        self.json_view = QPlainTextEdit()
+        self.json_view.setReadOnly(True)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.json_view, "JSON")
+        main_layout.addWidget(self.tabs)
 
         self.tree.itemSelectionChanged.connect(self._on_select)
         self.tree.itemDoubleClicked.connect(self._on_rename)
@@ -66,6 +78,7 @@ class TreeGui:
         self.content_list.itemDoubleClicked.connect(self._on_content_edit)
 
         self._build_tree()
+        self._update_json()
 
     # ----------------------------------------------------------------- tree utils
     def _build_tree(self) -> None:
@@ -87,7 +100,7 @@ class TreeGui:
 
         add_nodes(None)
         self.tree.expandAll()
-
+        
     def _sync_categories(self) -> None:
         """Update category parents and order based on the tree structure."""
 
@@ -110,6 +123,7 @@ class TreeGui:
 
         self.categories.clear()
         self.categories.update(new_cats)
+        self._update_json()
 
     # --------------------------------------------------------------------- actions
     def _on_select(self) -> None:
@@ -140,6 +154,7 @@ class TreeGui:
             self._build_tree()
             self.tree.setCurrentItem(self.nodes[new_name])
             self._show_content(new_name)
+        self._update_json()
 
     def _on_delete(self) -> None:
         items = self.tree.selectedItems()
@@ -153,6 +168,7 @@ class TreeGui:
                     c.parent = None
             self._build_tree()
             self.content_list.clear()
+        self._update_json()
 
     def _show_menu(self, pos) -> None:
         item = self.tree.itemAt(pos)
@@ -180,6 +196,7 @@ class TreeGui:
                 self.content_list.addItem(item)
                 self._content_map[idx] = c.name
                 idx += 1
+        self._update_json()
 
     def _on_content_edit(self, item) -> None:
         name = item.data(Qt.UserRole)
@@ -203,6 +220,11 @@ class TreeGui:
             self.contents.pop(name)
         self.contents[new_name] = Content(new_name, ctype, parent, action)
         self._show_content(parent)
+        self._update_json()
+
+    def _update_json(self) -> None:
+        """Refresh the JSON tab with current tree data."""
+        self.json_view.setPlainText(export_json(self.categories, self.contents))
 
     # --------------------------------------------------------------------------
     def run(self) -> None:
