@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
 )
 
-from .models import Category, Content
+from models import Category, Content
 
 
 class DragTreeWidget(QTreeWidget):

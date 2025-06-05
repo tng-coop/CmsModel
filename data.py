@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from .models import Category, Content
+from models import Category, Content
 
 
 def seed_data(categories: Dict[str, Category], contents: Dict[str, Content]) -> None:
