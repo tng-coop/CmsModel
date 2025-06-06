@@ -19,6 +19,8 @@ from PyQt5.QtWidgets import (
     QWidget,
     QInputDialog,
     QAbstractItemView,
+    QLabel,
+    QGroupBox,
 )
 
 from models import Category, Article
@@ -62,8 +64,19 @@ class TreeGui:
 
         main_layout = QVBoxLayout(self.window)
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.tree)
-        top_layout.addWidget(self.content_list)
+
+        tree_box = QGroupBox("Categories")
+        tree_layout = QVBoxLayout()
+        tree_layout.addWidget(self.tree)
+        tree_box.setLayout(tree_layout)
+        top_layout.addWidget(tree_box)
+
+        content_box = QGroupBox("Articles")
+        content_layout = QVBoxLayout()
+        content_layout.addWidget(self.content_list)
+        content_box.setLayout(content_layout)
+        top_layout.addWidget(content_box)
+
         main_layout.addLayout(top_layout)
 
         self.json_view = QPlainTextEdit()
