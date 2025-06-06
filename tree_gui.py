@@ -31,9 +31,10 @@ class DragTreeWidget(QTreeWidget):
     def __init__(self, on_drop, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._on_drop = on_drop
-        self.setDragEnabled(False)
-        self.setAcceptDrops(False)
-        self.setDragDropMode(QAbstractItemView.NoDragDrop)
+        # Enable drag and drop so categories can be reordered
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
 
     def dropEvent(self, event):
         super().dropEvent(event)
